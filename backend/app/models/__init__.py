@@ -1,3 +1,3 @@
-from app.models.user import User, UserSession
+from app.models.user import FactCheck, User, UserSession
 
-__all__ = ["User", "UserSession"]
+__all__ = ["FactCheck", "User", "UserSession"]
