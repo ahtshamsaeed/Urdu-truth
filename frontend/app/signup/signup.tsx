@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
+import { authRequest, type AuthenticatedUser } from "../../lib/auth-api";
 
 const inputClass =
   "h-11 w-full rounded-xl border border-slate-700/80 bg-[#07111f] px-3.5 text-[14px] text-white outline-none transition placeholder:text-slate-600 hover:border-slate-600 focus:border-cyan-400/80 focus:ring-4 focus:ring-cyan-400/[0.08]";
@@ -10,10 +12,39 @@ const inputClass =
 const labelClass = "mb-2 block text-[13px] font-medium text-slate-300";
 
 export default function Signup() {
+  const router = useRouter();
   const [contactMethod, setContactMethod] = useState<"email" | "phone">("email");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSignup(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    const formData = new FormData(event.currentTarget);
+    try {
+      await authRequest<AuthenticatedUser>("/auth/signup", {
+        method: "POST",
+        body: JSON.stringify({
+          full_name: formData.get("name"),
+          email: contactMethod === "email" ? formData.get("email") : null,
+          phone: contactMethod === "phone" ? formData.get("phone") : null,
+          password: formData.get("password"),
+          confirm_password: formData.get("confirmPassword"),
+          terms_accepted: formData.get("terms") === "on",
+        }),
+      });
+      router.replace("/dashboard");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Account creation failed. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -197,9 +228,10 @@ export default function Signup() {
 
             <button
               type="submit"
-              className="signup-submit group relative mt-1 flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-cyan-400 px-4 text-[14px] font-semibold text-[#04111b] shadow-[0_8px_28px_rgba(34,211,238,0.16)] transition duration-200 hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-[0_12px_32px_rgba(34,211,238,0.24)] active:translate-y-0 sm:col-span-2"
+              disabled={isSubmitting}
+              className="signup-submit group relative mt-1 flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-cyan-400 px-4 text-[14px] font-semibold text-[#04111b] shadow-[0_8px_28px_rgba(34,211,238,0.16)] transition duration-200 hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-[0_12px_32px_rgba(34,211,238,0.24)] active:translate-y-0 disabled:cursor-wait disabled:opacity-70 sm:col-span-2"
             >
-              Create account
+              {isSubmitting ? "Creating account..." : "Create account"}
               <svg
                 viewBox="0 0 20 20"
                 fill="none"
@@ -217,6 +249,15 @@ export default function Signup() {
             </button>
           </form>
 
+          {errorMessage && (
+            <p
+              role="alert"
+              className="mt-4 rounded-lg border border-rose-400/20 bg-rose-400/[0.08] px-3 py-2 text-[12px] leading-5 text-rose-200"
+            >
+              {errorMessage}
+            </p>
+          )}
+
           <div className="my-5 flex items-center gap-3">
             <span className="h-px flex-1 bg-slate-800" />
             <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-600">
@@ -227,6 +268,7 @@ export default function Signup() {
 
           <button
             type="button"
+            onClick={() => setErrorMessage("Google sign-in is not configured yet.")}
             className="flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-slate-700/80 bg-white/[0.02] text-[14px] font-medium text-slate-300 transition hover:border-slate-600 hover:bg-white/[0.05] hover:text-white"
           >
             <svg

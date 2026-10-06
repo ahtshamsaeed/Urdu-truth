@@ -2,8 +2,42 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
+import { authRequest, type AuthenticatedUser } from "../../lib/auth-api";
 
 export default function Login() {
+  const router = useRouter();
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    const formData = new FormData(event.currentTarget);
+    try {
+      await authRequest<AuthenticatedUser>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          identifier: formData.get("identifier"),
+          password: formData.get("password"),
+          remember_me: formData.get("remember") === "on",
+        }),
+      });
+      router.replace("/dashboard");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Sign in failed. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <main className="login-page relative flex min-h-screen items-center justify-center overflow-hidden bg-[#06111f] px-4 py-8 text-white sm:px-6 sm:py-10">
       <div aria-hidden="true" className="login-grid pointer-events-none absolute inset-0" />
@@ -34,7 +68,7 @@ export default function Login() {
             </p>
           </div>
 
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleLogin}>
             <div>
               <label htmlFor="login-identifier" className="mb-2 block text-[13px] font-medium text-slate-300">
                 Email or phone number
@@ -44,6 +78,7 @@ export default function Login() {
                 name="identifier"
                 type="text"
                 autoComplete="username"
+                required
                 placeholder="you@example.com or +92 300 1234567"
                 className="h-11 w-full rounded-xl border border-slate-700/80 bg-[#07111f] px-4 text-[14px] text-white outline-none transition placeholder:text-slate-600 hover:border-slate-600 focus:border-cyan-400/80 focus:ring-4 focus:ring-cyan-400/[0.08]"
               />
@@ -54,7 +89,11 @@ export default function Login() {
                 <label htmlFor="password" className="block text-[13px] font-medium text-slate-300">
                   Password
                 </label>
-                <button type="button" className="text-[12px] font-medium text-cyan-300/90 transition hover:text-cyan-200">
+                <button
+                  type="button"
+                  onClick={() => setErrorMessage("Password reset is not available yet.")}
+                  className="text-[12px] font-medium text-cyan-300/90 transition hover:text-cyan-200"
+                >
                   Forgot password?
                 </button>
               </div>
@@ -63,6 +102,7 @@ export default function Login() {
                 name="password"
                 type="password"
                 autoComplete="current-password"
+                required
                 placeholder="Enter your password"
                 className="h-11 w-full rounded-xl border border-slate-700/80 bg-[#07111f] px-4 text-[14px] text-white outline-none transition placeholder:text-slate-600 hover:border-slate-600 focus:border-cyan-400/80 focus:ring-4 focus:ring-cyan-400/[0.08]"
               />
@@ -74,15 +114,25 @@ export default function Login() {
             </label>
 
             <button
-              type="button"
-              className="login-submit group relative mt-1 flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-cyan-400 px-4 text-[14px] font-semibold text-[#04111b] shadow-[0_8px_28px_rgba(34,211,238,0.16)] transition duration-200 hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-[0_12px_32px_rgba(34,211,238,0.24)] active:translate-y-0"
+              type="submit"
+              disabled={isSubmitting}
+              className="login-submit group relative mt-1 flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-cyan-400 px-4 text-[14px] font-semibold text-[#04111b] shadow-[0_8px_28px_rgba(34,211,238,0.16)] transition duration-200 hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-[0_12px_32px_rgba(34,211,238,0.24)] active:translate-y-0 disabled:cursor-wait disabled:opacity-70"
             >
-              Sign in
+              {isSubmitting ? "Signing in..." : "Sign in"}
               <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true">
                 <path d="M3.5 10h13m0 0-5-5m5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           </form>
+
+          {errorMessage && (
+            <p
+              role="alert"
+              className="mt-4 rounded-lg border border-rose-400/20 bg-rose-400/[0.08] px-3 py-2 text-[12px] leading-5 text-rose-200"
+            >
+              {errorMessage}
+            </p>
+          )}
 
           <div className="my-5 flex items-center gap-3">
             <span className="h-px flex-1 bg-slate-800" />
@@ -92,6 +142,7 @@ export default function Login() {
 
           <button
             type="button"
+            onClick={() => setErrorMessage("Google sign-in is not configured yet.")}
             className="flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-slate-700/80 bg-white/[0.02] text-[14px] font-medium text-slate-300 transition hover:border-slate-600 hover:bg-white/[0.05] hover:text-white"
           >
             <svg

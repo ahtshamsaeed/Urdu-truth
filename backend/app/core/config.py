@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -12,6 +13,9 @@ class Settings(BaseSettings):
 
     database_url: str | None = None
     cors_origins: str = "http://localhost:3000"
+    session_cookie_name: str = "urdutruth_session"
+    session_cookie_secure: bool = True
+    session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
     @property
     def allowed_origins(self) -> list[str]:

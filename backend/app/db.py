@@ -1,7 +1,9 @@
 from functools import lru_cache
 from collections.abc import Generator
 
-from sqlalchemy import Engine, create_engine
+from fastapi import HTTPException
+from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import get_settings
@@ -21,10 +23,21 @@ def get_database_engine() -> Engine:
 
 
 def get_db_session() -> Generator[Session, None, None]:
-    session_factory = sessionmaker(
-        bind=get_database_engine(),
-        autoflush=False,
-        autocommit=False,
-    )
+    try:
+        engine = get_database_engine()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Database is not configured",
+        ) from exc
+
+    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     with session_factory() as session:
+        try:
+            session.execute(text("SELECT 1"))
+        except SQLAlchemyError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Database connection failed",
+            ) from exc
         yield session

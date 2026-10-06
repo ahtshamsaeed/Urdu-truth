@@ -2,8 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import {
+  AuthApiError,
+  authRequest,
+  type AuthenticatedUser,
+} from "../lib/auth-api";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
@@ -56,7 +61,83 @@ export default function WorkspaceShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
+  const [authError, setAuthError] = useState("");
+  const [authAttempt, setAuthAttempt] = useState(0);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+
+    authRequest<AuthenticatedUser>("/auth/me")
+      .then((user) => {
+        if (isActive) setCurrentUser(user);
+      })
+      .catch((error: unknown) => {
+        if (!isActive) return;
+        if (error instanceof AuthApiError && error.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        setAuthError(
+          error instanceof Error
+            ? error.message
+            : "Could not verify your session.",
+        );
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [authAttempt, router]);
+
+  async function handleSignOut() {
+    setIsSigningOut(true);
+    setAuthError("");
+    try {
+      await authRequest<void>("/auth/logout", { method: "POST" });
+      router.replace("/login");
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : "Sign out failed.",
+      );
+      setIsSigningOut(false);
+    }
+  }
+
+  if (!currentUser) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#070f1d] px-5 text-slate-100">
+        <section className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0b1728] p-6 text-center">
+          {authError ? (
+            <>
+              <h1 className="text-lg font-semibold">Workspace unavailable</h1>
+              <p role="alert" className="mt-2 text-sm leading-6 text-rose-200">
+                {authError}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentUser(null);
+                  setAuthError("");
+                  setAuthAttempt((attempt) => attempt + 1);
+                }}
+                className="mt-5 rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-[#06111f]"
+              >
+                Try again
+              </button>
+            </>
+          ) : (
+            <p role="status" className="text-sm text-slate-300">
+              Verifying your UrduTruth account…
+            </p>
+          )}
+        </section>
+      </main>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#070f1d] font-sans text-slate-100">
@@ -118,6 +199,19 @@ export default function WorkspaceShell({
             Review Urdu and English claims with evidence-first checks.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          className="mt-3 min-h-10 rounded-lg px-3 text-left text-[12px] font-medium text-slate-400 transition hover:bg-white/[0.04] hover:text-slate-100 disabled:cursor-wait disabled:opacity-60"
+        >
+          {isSigningOut ? "Signing out…" : "Sign out"}
+        </button>
+        {authError && (
+          <p role="alert" className="mt-2 px-2 text-[11px] leading-5 text-rose-300">
+            {authError}
+          </p>
+        )}
         <p className="mt-4 px-2 text-[10px] text-slate-600">UrduTruth.com</p>
       </aside>
 
@@ -169,7 +263,12 @@ export default function WorkspaceShell({
             aria-label="Open profile"
             className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-300 to-teal-500 text-[11px] font-bold text-[#06111f] ring-2 ring-cyan-300/10"
           >
-            A
+            {currentUser.full_name
+              .split(/\s+/)
+              .slice(0, 2)
+              .map((part) => part[0])
+              .join("")
+              .toUpperCase()}
           </Link>
         </header>
 
